@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedPulse-AI | Intelligent Healthcare Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%200%22%20100%22%20100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+</head>
+<body>
+  <div class="chat-container">
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="brand">
+        <div class="logo-badge">🩺</div>
+        <div class="brand-text">
+          <h1>MedPulse-AI</h1>
+          <p>RAG-Powered Clinical Intelligence</p>
+        </div>
+      </div>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span>Active Knowledge Base</span>
+      </div>
+    </header>
+
+    <!-- Medical Disclaimer -->
+    <div class="disclaimer-banner">
+      <span>⚠️</span>
+      <span><strong>Medical Notice:</strong> MedPulse-AI provides informational reference and does not substitute certified clinical advice or emergency care.</span>
+    </div>
+
+    <!-- Chat Message Container -->
+    <main class="chat-messages" id="chatMessages">
+      <div class="welcome-card" id="welcomeCard">
+        <div class="welcome-icon">🏥</div>
+        <h2>Welcome to MedPulse-AI</h2>
+        <p>Your context-grounded medical AI assistant. Ask questions about symptoms, clinical procedures, pharmacological mechanisms, or preventive health.</p>
+        <div class="prompt-suggestions">
+          <button class="prompt-pill" onclick="sendSuggested('What are the primary symptoms and diagnostic indicators of Type 2 Diabetes?')">
+            <span>🩺</span> Symptoms of Type 2 Diabetes
+          </button>
+          <button class="prompt-pill" onclick="sendSuggested('What is the recommended immediate first-aid protocol for a minor burn?')">
+            <span>🩹</span> First aid for minor burns
+          </button>
+          <button class="prompt-pill" onclick="sendSuggested('How do viral and bacterial respiratory infections differ in etiology and treatment?')">
+            <span>💊</span> Viral vs Bacterial infections
+          </button>
+          <button class="prompt-pill" onclick="sendSuggested('What non-pharmacological lifestyle interventions help lower chronic hypertension?')">
+            <span>🫀</span> Managing hypertension naturally
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Chat Input Area -->
+    <footer class="chat-input-area">
+      <form class="input-form" id="chatForm">
+        <input 
+          type="text" 
+          id="userInput" 
+          class="input-field" 
+          placeholder="Ask a medical question (e.g. causes of acute bronchitis)..." 
+          autocomplete="off" 
+          required
+        />
+        <button type="submit" class="send-btn" id="sendBtn">
+          <span>Send</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </form>
+    </footer>
+  </div>
+
+  <script>
+    const chatForm = document.getElementById("chatForm");
+    const userInput = document.getElementById("userInput");
+    const chatMessages = document.getElementById("chatMessages");
+    const welcomeCard = document.getElementById("welcomeCard");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function getTimeString() {
+      const now = new Date();
+      return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function appendMessage(text, sender) {
+      if (welcomeCard) {
+        welcomeCard.style.display = "none";
+      }
+
+      const row = document.createElement("div");
+      row.className = `message-row ${sender}`;
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = sender === "user" ? "👤" : "🩺";
+
+      const contentWrapper = document.createElement("div");
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.innerHTML = text.replace(/\n/g, "<br>");
+
+      const timeSpan = document.createElement("span");
+      timeSpan.className = "msg-time";
+      timeSpan.textContent = getTimeString();
+
+      contentWrapper.appendChild(bubble);
+      contentWrapper.appendChild(timeSpan);
+
+      row.appendChild(avatar);
+      row.appendChild(contentWrapper);
+
+      chatMessages.appendChild(row);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+      const row = document.createElement("div");
+      row.className = "message-row bot";
+      row.id = "typingIndicator";
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = "🩺";
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble typing-bubble";
+      bubble.innerHTML = `
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+      `;
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      chatMessages.appendChild(row);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+      const indicator = document.getElementById("typingIndicator");
+      if (indicator) {
+        indicator.remove();
+      }
+    }
+
+    async function handleSendMessage(message) {
+      if (!message.trim()) return;
+
+      appendMessage(message, "user");
+      userInput.value = "";
+      userInput.disabled = true;
+      sendBtn.disabled = true;
+
+      showTypingIndicator();
+
+      try {
+        const formData = new FormData();
+        formData.append("msg", message);
+
+        const response = await fetch("/get", {
+          method: "POST",
+          body: formData
+        });
+
+        const reply = await response.text();
+        removeTypingIndicator();
+        appendMessage(reply, "bot");
+      } catch (err) {
+        removeTypingIndicator();
+        appendMessage("Network or server connection error. Please verify the Flask server is running.", "bot");
+      } finally {
+        userInput.disabled = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+      }
+    }
+
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      handleSendMessage(userInput.value);
+    });
+
+    function sendSuggested(query) {
+      handleSendMessage(query);
+    }
+  </script>
+</body>
+</html>
